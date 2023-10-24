@@ -6,6 +6,8 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Markup;
+using System.Windows.Input;
+using System.Windows;
 
 namespace ohrwachs
 {
@@ -19,14 +21,13 @@ namespace ohrwachs
        - it then came to:   Class cl = new ();
 
        Range
-       Range r1 = 9..12;     gives a Range from the 9th to 12th item in an array. Zero based, of course.
-       Range r2 = 1..;       gives all elements but not the first
-       Range r3 = ..^1;      gives all but the last
+       - Range r1 = 9..12;     gives a Range from the 9th to 12th item in an array. Zero based, of course.
+       - Range r2 = 1..;       gives all elements but not the first
+       - Range r3 = ..^1;      gives all but the last
 
        ^ (hat) is index relative to end.
     */
 
-    // hlpr: https://www.codeconvert.ai/python-to-csharp-converter
     public static class Hlpr
     {
         //*****************************************************************************************************************************************************
@@ -123,10 +124,6 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public void Add(byte[] data)
         {
-            if (data.Length < 1000)
-            {
-                Console.WriteLine(data.Length);
-            }
             Header header = new Header(data);
 
             byte[] d = data[56..];
@@ -162,10 +159,19 @@ namespace ohrwachs
 
     }
 
+    
+    //*****************************************************************************************************************************************************
+    public class OhrwachsEventArgs : EventArgs
+    {
+        public int ImgNr { get; set; }
 
-    /*
+        public OhrwachsEventArgs(int ImgNr)
+        {
+            this.ImgNr = ImgNr;
+        }
+    }
 
-     */
+    public delegate void OhrwachsEventHandler(object source, OhrwachsEventArgs e);
 
     //*****************************************************************************************************************************************************
     class OhrwachsEmpfaenger
@@ -182,10 +188,9 @@ namespace ohrwachs
         byte[] nullbyte = new byte[0];
         byte[] initbytes = { 0xef, 0x00, 0x04, 0x00 };
         byte[] msgbytes = { 0xef, 0x02 };
-
-        enum ConnectionState { init, pktresendreq, reconnect }
-
         public bool die = false;
+
+        public event OhrwachsEventHandler OnImgFertig = null;
 
         //*****************************************************************************************************************************************************
         byte[]? EmpfangeUDPpacket(UdpClient udpReceiver)
@@ -250,8 +255,6 @@ namespace ohrwachs
             len += (d1 != null ? 1 : 0);
             len += (d2 != null ? 1 : 0);
 
-            // Console.WriteLine(BitConverter.ToString(Hlpr.ullToByte(len)).Replace("-", string.Empty));
-
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.ullToByte(len));
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.HexStringToByte("0000000000000000"));
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.HexStringToByte("0a4b142d00000000"));
@@ -267,14 +270,12 @@ namespace ohrwachs
 
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.HexStringToByte("0000000000000000"));
 
-            //to_send = bytes([0xef, 0x02]) + short_to_bytes(len(to_send) + 4) + to_send
-
             byte[] head = msgbytes;
             head = Hlpr.Add2ByteArrays(head, Hlpr.sToByte(msg.Length + 4));
 
             msg = Hlpr.Add2ByteArrays(head, msg);
 
-            Console.WriteLine(BitConverter.ToString(msg).Replace("-", string.Empty));
+            // Console.WriteLine(BitConverter.ToString(msg).Replace("-", string.Empty));
 
             udp.Send(msg, remoteEP2);
         }
@@ -297,10 +298,9 @@ namespace ohrwachs
                 UdpClient udp = new UdpClient(localport);
                 udp.Client.ReceiveTimeout = 125;
 
-                ConnectionState state = ConnectionState.init;
-
                 DateTime last_msg = DateTime.Now;
                 int last_full_image = 0;
+                int imgcounter = 0;  // globaler gesamtbildzähler
                 Frame current_frame = null;
                 try
                 {
@@ -352,6 +352,16 @@ namespace ohrwachs
                                 sendmessage(udp, 
                                     msgAckImg(current_frame.header.img_number),
                                     reqImg(current_frame.header.img_number + 1));
+                                
+                                imgcounter++;
+
+                                if (OnImgFertig != null)
+                                {   // Wir sind ein Thread...
+                                    Application.Current.Dispatcher.Invoke(() =>
+                                    {
+                                        OnImgFertig(this, new OhrwachsEventArgs(imgcounter));
+                                    });
+                                }
 
                                 last_full_image = (int)current_frame.header.img_number;
                                 current_frame = null;

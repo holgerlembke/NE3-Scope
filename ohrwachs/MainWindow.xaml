@@ -5,8 +5,25 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ohrwachs"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Ohrwachs - ein Port von NE3-Scope" Height="450" Width="800">
     <Grid>
+      <Grid.LayoutTransform>
+         <ScaleTransform x:Name="uiScaler" CenterX="0" CenterY="0" ScaleX="1" ScaleY="1" />
+      </Grid.LayoutTransform>
 
-    </Grid>
+      <Grid.ColumnDefinitions>
+         <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+         <RowDefinition Height="auto" />
+         <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
+         <TextBlock Margin="0,0,3,0">Frame:</TextBlock>
+         <TextBlock x:Name="tbframe">XX</TextBlock>
+      </StackPanel>
+       
+   </Grid>
 </Window>
+
+   

@@ -29,6 +29,7 @@ namespace ohrwachs
                 Closing += OnWindowClosing;
 
                 ow = new();
+                ow.OnImgFertig += OhrwachsEventHandler;
                 Startthread();
             }
         }
