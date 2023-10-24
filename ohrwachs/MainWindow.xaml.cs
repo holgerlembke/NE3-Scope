@@ -22,14 +22,14 @@ namespace ohrwachs
         public MainWindow()
         {
             InitializeComponent();
-            AllocConsole();
 
-            Closing += OnWindowClosing;
-
-            WiFiConnect();
-
-            ow = new ();
-            Startthread();
+            if (WiFiConnect())
+            {
+                AllocConsole();
+                Closing += OnWindowClosing;
+                ow = new();
+                Startthread();
+            }
         }
 
         //*****************************************************************************************************************************************************
@@ -52,9 +52,9 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        private void WiFiConnect()
+        private bool WiFiConnect()
         {   // addd simplewifi via nuget mgr, https://github.com/DigiExam/simplewifi
-            Wifi wifi = new ();
+            Wifi wifi = new();
 
             // get list of access points
             IEnumerable<AccessPoint> accessPoints = wifi.GetAccessPoints();
@@ -70,7 +70,10 @@ namespace ohrwachs
                     {
                         Console.WriteLine($"Wifi connecting: {ap.Name}");
                         AuthRequest authRequest = new AuthRequest(ap);
+                        Thread.Sleep(1000);
                         ap.Connect(authRequest);
+                        Thread.Sleep(1000);
+                        return true;
                     }
                     else
                     {
@@ -78,6 +81,7 @@ namespace ohrwachs
                     }
                 }
             }
+            return false;
         }
     }
 }

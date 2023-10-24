@@ -9,11 +9,20 @@ using System.Threading.Tasks;
 namespace ohrwachs
 {
     /*
-       Hint for readers: instance a Class() in C#
+       C# hint for readers: 
+    
+       Instance a Class() 
        
        - it started this way:  Class cl = new Class();
        - and sometimes:  var cl = new Class();
        - it then came to:   Class cl = new ();
+
+       Range
+       Range r1 = 9..12;     gives a Range from the 9th to 12th item in an array. Zero based, of course.
+       Range r2 = 1..;       gives all elements but not the first
+       Range r3 = ..^1;      gives all but the last
+
+       ^ (hat) is index relative to end.
     */
 
     // hlpr: https://www.codeconvert.ai/python-to-csharp-converter
@@ -119,17 +128,18 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public void Add(byte[] data)
         {
-            Header header = new (data);
-            byte[] d = new byte[data.Length - 56];
-            Array.Copy(data, 56, d, 0, d.Length);
+            if (data.Length < 1000)
+            {
+                Console.WriteLine(data.Length);
+            }
+            Header header = new Header(data);
 
-            this.chunks[header.packet_number] = new byte[1024];
-            Array.Copy(d, 0, this.chunks[header.packet_number], 0, 1024);
+            byte[] d = data[56..];
+            this.chunks[header.packet_number] = d[..^0];
 
             if (header.packet_number == 0)
             {
-                byte[] a = new byte[d.Length - 1024];
-                Array.Copy(d, 1024, a, 0, a.Length);
+                byte[] a = d[1024..];
                 int x = int.Parse(System.Text.Encoding.Default.GetString(a, 0, 5));
                 int y = int.Parse(System.Text.Encoding.Default.GetString(a, 6, a.Length - 6));
 
@@ -202,7 +212,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        byte[] msgAckImg(int imgnumber)
+        byte[] msgAckImg(UInt64 imgnumber)
         {
             byte[] res = Hlpr.ullToByte(Convert.ToUInt64(imgnumber));
             res = Hlpr.Add2ByteArrays(res, Hlpr.HexStringToByte("0100000014000000ffffffff"));
@@ -211,7 +221,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        byte[] reqImg(int imgnumber)
+        byte[] reqImg(UInt64 imgnumber)
         {
             byte[] res = Hlpr.ullToByte(Convert.ToUInt64(imgnumber));
             res = Hlpr.Add2ByteArrays(res, Hlpr.HexStringToByte("0300000010000000"));
@@ -299,7 +309,7 @@ namespace ohrwachs
                     while (!die)
                     {
                         byte[]? packet = EmpfangeUDPpacket(udp);
-                        if (packet != null)
+                        if (packet != null) // https://www.youtube.com/watch?v=0kadkQDc1Ts
                         {
                             Console.WriteLine("Packet!");
 
@@ -335,10 +345,11 @@ namespace ohrwachs
 
                             if (current_frame.Complete)
                             {
-                                Console.WriteLine("Img complete.");
+                                Console.WriteLine($"Img {header.img_number} complete.");
 
-
-                                //send_msgs(s, [msg_ack_img(current_frame.header.img_number), msg_req_img(current_frame.header.img_number + 1)])
+                                sendmessage(udp, 
+                                    msgAckImg(current_frame.header.img_number),
+                                    reqImg(current_frame.header.img_number + 1));
                             }
                         }
 
