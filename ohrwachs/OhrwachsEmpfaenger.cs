@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Markup;
 
 namespace ohrwachs
 {
@@ -49,10 +50,7 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public static byte[] ullToByte(UInt64 v) // int_to_bytes: return struct.pack("<Q", i)  little-endian      unsigned long long=8
         {
-            byte[] res = BitConverter.GetBytes(v);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(res);
-            return res;
+            return BitConverter.GetBytes(v);
         }
 
         //*****************************************************************************************************************************************************
@@ -64,10 +62,7 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public static byte[] sToByte(Int16 v) // short_to_bytes: return struct.pack("<H", l)  little-endian   	unsigned short=2
         {
-            byte[] res = BitConverter.GetBytes(v);
-            if (BitConverter.IsLittleEndian)
-                Array.Reverse(res);
-            return res;
+            return BitConverter.GetBytes(v);
         }
 
         //*****************************************************************************************************************************************************
@@ -201,12 +196,12 @@ namespace ohrwachs
             {
                 packet = udpReceiver.Receive(ref sender);
             }
-            catch (Exception)
+            catch (Exception e)
             {
                 return null;
             }
             // $ is "String interpolation" instead of format... C#6.0
-            Console.WriteLine($"Received {packet.Length} bytes from {sender}");
+            // Console.WriteLine($"Received {packet.Length} bytes from {sender}");
 
             return packet;
         }
@@ -251,9 +246,11 @@ namespace ohrwachs
 
             byte[] msg = Hlpr.HexStringToByte("02020001");
 
-            int len = 0;
-            len += (d1 != null ? d1.Length : 0);
-            len += (d2 != null ? d2.Length : 0);
+            int len = 0; // number of messages?
+            len += (d1 != null ? 1 : 0);
+            len += (d2 != null ? 1 : 0);
+
+            // Console.WriteLine(BitConverter.ToString(Hlpr.ullToByte(len)).Replace("-", string.Empty));
 
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.ullToByte(len));
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.HexStringToByte("0000000000000000"));
@@ -270,10 +267,14 @@ namespace ohrwachs
 
             msg = Hlpr.Add2ByteArrays(msg, Hlpr.HexStringToByte("0000000000000000"));
 
+            //to_send = bytes([0xef, 0x02]) + short_to_bytes(len(to_send) + 4) + to_send
+
             byte[] head = msgbytes;
-            head = Hlpr.Add2ByteArrays(msg, Hlpr.sToByte(msg.Length + 4));
+            head = Hlpr.Add2ByteArrays(head, Hlpr.sToByte(msg.Length + 4));
 
             msg = Hlpr.Add2ByteArrays(head, msg);
+
+            Console.WriteLine(BitConverter.ToString(msg).Replace("-", string.Empty));
 
             udp.Send(msg, remoteEP2);
         }
@@ -311,7 +312,8 @@ namespace ohrwachs
                         byte[]? packet = EmpfangeUDPpacket(udp);
                         if (packet != null) // https://www.youtube.com/watch?v=0kadkQDc1Ts
                         {
-                            Console.WriteLine("Packet!");
+                            last_msg = DateTime.Now;
+                            // Console.WriteLine("Packet!");
 
                             if (packet[0] != 0x93)
                             {
@@ -350,6 +352,9 @@ namespace ohrwachs
                                 sendmessage(udp, 
                                     msgAckImg(current_frame.header.img_number),
                                     reqImg(current_frame.header.img_number + 1));
+
+                                last_full_image = (int)current_frame.header.img_number;
+                                current_frame = null;
                             }
                         }
 
@@ -360,7 +365,7 @@ namespace ohrwachs
                             return;
                         }
 
-                        if (vergangen10tel > 5)
+                        if (vergangen10tel > 15)
                         {
                             Console.WriteLine("Request timed out; Reconnecting");
                             send_init(udp);

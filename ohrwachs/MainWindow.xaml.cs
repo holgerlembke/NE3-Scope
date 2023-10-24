@@ -27,6 +27,7 @@ namespace ohrwachs
             {
                 AllocConsole();
                 Closing += OnWindowClosing;
+
                 ow = new();
                 Startthread();
             }
@@ -54,6 +55,12 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         private bool WiFiConnect()
         {   // addd simplewifi via nuget mgr, https://github.com/DigiExam/simplewifi
+
+            return true;
+
+            // Funktioniert bei mir eher nicht...
+
+
             Wifi wifi = new();
 
             // get list of access points
@@ -78,6 +85,7 @@ namespace ohrwachs
                     else
                     {
                         Console.WriteLine($"Wifi connected: {ap.Name}");
+                        return true;
                     }
                 }
             }
