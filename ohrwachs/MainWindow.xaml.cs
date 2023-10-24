@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,10 +26,38 @@ namespace ohrwachs
         [DllImport("Kernel32")]
         public static extern void AllocConsole();
 
+        OhrwachsEmpfaenger ow = null;
+
+        //*****************************************************************************************************************************************************
         public MainWindow()
         {
             InitializeComponent();
             AllocConsole();
+
+            Closing += OnWindowClosing;
+
+            ow = new OhrwachsEmpfaenger();
+            Startthread();
         }
+
+        //*****************************************************************************************************************************************************
+        void Startthread() // https://www.youtube.com/watch?v=qeMFqkcPYcg
+        {
+            Thread thread = new Thread(new ThreadStart(ThreadJob));
+            thread.Start();
+        }
+
+        //*****************************************************************************************************************************************************
+        void ThreadJob() // https://www.youtube.com/watch?v=TzFnYcIqj6I
+        {
+            ow.StartClient();
+        }
+
+        //*****************************************************************************************************************************************************
+        public void OnWindowClosing(object sender, CancelEventArgs e)
+        {
+            ow.die = true;
+        }
+
     }
 }

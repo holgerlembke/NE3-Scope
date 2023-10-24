@@ -12,7 +12,10 @@ notizen.txt
 # yeah. live is hard.
 *.cmd
 .vscode
+
+# Folders
 .vs/
 bin/
 obj/
-
+__pycache__/
+devcopy/

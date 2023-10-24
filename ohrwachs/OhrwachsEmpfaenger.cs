@@ -172,6 +172,8 @@ namespace ohrwachs
 
         enum ConnectionState { init, pktresendreq, reconnect }
 
+        public bool die = false;
+
         //*****************************************************************************************************************************************************
         byte[]? EmpfangeUDPpacket(UdpClient udpReceiver)
         {
@@ -286,7 +288,7 @@ namespace ohrwachs
                     udp.Send(nullbyte, remoteEP1);
                     send_init(udp);
 
-                    while (true)
+                    while (!die)
                     {
                         byte[]? packet = EmpfangeUDPpacket(udp);
                         if (packet != null)
