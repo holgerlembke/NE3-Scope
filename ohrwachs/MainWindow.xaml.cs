@@ -1,20 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using SimpleWifi;
 
 namespace ohrwachs
 {
@@ -36,28 +26,59 @@ namespace ohrwachs
 
             Closing += OnWindowClosing;
 
+            WiFiConnect();
+
             ow = new OhrwachsEmpfaenger();
             Startthread();
         }
 
         //*****************************************************************************************************************************************************
-        void Startthread() // https://www.youtube.com/watch?v=qeMFqkcPYcg
+        private void Startthread() // https://www.youtube.com/watch?v=qeMFqkcPYcg
         {
             Thread thread = new Thread(new ThreadStart(ThreadJob));
             thread.Start();
         }
 
         //*****************************************************************************************************************************************************
-        void ThreadJob() // https://www.youtube.com/watch?v=TzFnYcIqj6I
+        private void ThreadJob() // https://www.youtube.com/watch?v=TzFnYcIqj6I
         {
             ow.StartClient();
         }
 
         //*****************************************************************************************************************************************************
-        public void OnWindowClosing(object sender, CancelEventArgs e)
+        private void OnWindowClosing(object sender, CancelEventArgs e)
         {
             ow.die = true;
         }
 
+        //*****************************************************************************************************************************************************
+        private void WiFiConnect()
+        {   // addd simplewifi via nuget mgr, https://github.com/DigiExam/simplewifi
+            Wifi wifi = new Wifi();
+
+            // get list of access points
+            IEnumerable<AccessPoint> accessPoints = wifi.GetAccessPoints();
+
+            // for each access point from list
+            foreach (AccessPoint ap in accessPoints)
+            {
+                //check if SSID is desired
+                if (ap.Name.StartsWith("HNDEC_"))
+                {
+                    //verify connection to desired SSID
+                    if (!ap.IsConnected)
+                    {
+                        Console.WriteLine($"Wifi connecting: {ap.Name}");
+                        AuthRequest authRequest = new AuthRequest(ap);
+                        ap.Connect(authRequest);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Wifi connected: {ap.Name}");
+                    }
+                }
+            }
+        }
     }
 }
+
