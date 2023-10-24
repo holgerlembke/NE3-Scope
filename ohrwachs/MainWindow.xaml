@@ -19,8 +19,9 @@
          <RowDefinition Height="*" />
       </Grid.RowDefinitions>
       <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-         <TextBlock Margin="0,0,3,0">Frame:</TextBlock>
-         <TextBlock x:Name="tbframe">XX</TextBlock>
+         <Button Margin="3,0,3,0" Click="BtStart">Start</Button>
+         <TextBlock Margin="0,0,3,0" VerticalAlignment="Center">Frame:</TextBlock>
+         <TextBlock x:Name="tbframe" VerticalAlignment="Center">XX</TextBlock>
       </StackPanel>
        
    </Grid>

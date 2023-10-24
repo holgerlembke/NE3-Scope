@@ -22,16 +22,7 @@ namespace ohrwachs
         public MainWindow()
         {
             InitializeComponent();
-
-            if (WiFiConnect())
-            {
-                AllocConsole();
-                Closing += OnWindowClosing;
-
-                ow = new();
-                ow.OnImgFertig += OhrwachsEventHandler;
-                Startthread();
-            }
+            Closing += OnWindowClosing;
         }
 
         //*****************************************************************************************************************************************************
@@ -50,7 +41,11 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         private void OnWindowClosing(object sender, CancelEventArgs e)
         {
-            ow.die = true;
+            if (ow != null)
+            {
+                ow.die = true;
+                ow = null;
+            }
         }
 
         //*****************************************************************************************************************************************************
@@ -91,6 +86,20 @@ namespace ohrwachs
                 }
             }
             return false;
+        }
+
+        //*****************************************************************************************************************************************************
+        private void BtStart(object sender, RoutedEventArgs e)
+        {
+            if (WiFiConnect())
+            {
+                AllocConsole();
+                this.Activate();
+
+                ow = new();
+                ow.OnImgFertig += OhrwachsEventHandler;
+                Startthread();
+            }
         }
     }
 }
