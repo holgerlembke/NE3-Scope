@@ -28,7 +28,7 @@ namespace ohrwachs
 
             WiFiConnect();
 
-            ow = new OhrwachsEmpfaenger();
+            ow = new ();
             Startthread();
         }
 
@@ -54,7 +54,7 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         private void WiFiConnect()
         {   // addd simplewifi via nuget mgr, https://github.com/DigiExam/simplewifi
-            Wifi wifi = new Wifi();
+            Wifi wifi = new ();
 
             // get list of access points
             IEnumerable<AccessPoint> accessPoints = wifi.GetAccessPoints();

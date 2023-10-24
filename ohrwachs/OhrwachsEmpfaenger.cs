@@ -8,6 +8,14 @@ using System.Threading.Tasks;
 
 namespace ohrwachs
 {
+    /*
+       Hint for readers: instance a Class() in C#
+       
+       - it started this way:  Class cl = new Class();
+       - and sometimes:  var cl = new Class();
+       - it then came to:   Class cl = new ();
+    */
+
     // hlpr: https://www.codeconvert.ai/python-to-csharp-converter
     public static class Hlpr
     {
@@ -79,7 +87,7 @@ namespace ohrwachs
         public Header(byte[] data)
         {
             // BitConverter.IsLittleEndian=false
-            length = BitConverter.ToUInt16(data, 0);
+            length = BitConverter.ToUInt16(data, 2);
             img_number = BitConverter.ToUInt64(data, 8);
             UInt64 img_number2 = BitConverter.ToUInt64(data, 16);
             packet_number = BitConverter.ToInt32(data, 32);
@@ -111,7 +119,7 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public void Add(byte[] data)
         {
-            Header header = new Header(data);
+            Header header = new (data);
             byte[] d = new byte[data.Length - 56];
             Array.Copy(data, 56, d, 0, d.Length);
 
@@ -350,25 +358,18 @@ namespace ohrwachs
                         }
                     }
                 }
-                catch (ArgumentNullException ane)
-                {
-                    Console.WriteLine("ArgumentNullException : {0}", ane.ToString());
-                }
-                catch (SocketException se)
-                {
-                    Console.WriteLine("SocketException : {0}", se.ToString());
-                }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Unexpected exception : {0}", e.ToString());
+                    Console.WriteLine(e.ToString());
+                    return; // ich mein, was sonst kann man tun?
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine(e.ToString());
+                return; 
             }
         }
-
     }
 }
 
