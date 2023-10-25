@@ -17,7 +17,8 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         void OhrwachsEventHandler(object source, OhrwachsEventArgs e)
         {
-
+            tbframe.Text = e.ImgNr.ToString();
+            imohrwachs.Source = e.Image;
         }
 
 

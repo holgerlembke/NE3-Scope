@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Windows;
 using System.IO;
 using System.Windows.Media.Imaging;
+using System.Windows.Markup;
 
 namespace ohrwachs
 {
@@ -26,7 +27,9 @@ namespace ohrwachs
        ^ (hat) is index relative to end.
     */
 
-    public static class Hlpr
+
+
+    internal static class Hlpr // TODO braucht eine Überarbeiitung der Datentypen!
     {
         //*****************************************************************************************************************************************************
         public static byte[] Add2ByteArrays(byte[] a1, byte[] a2)
@@ -64,6 +67,13 @@ namespace ohrwachs
             return BitConverter.GetBytes(v);
         }
 
+        public static byte[] sToByteBigEndian(Int16 v) // short_to_bytes: return struct.pack("<H", l)  little-endian   	unsigned short=2
+        {
+            Byte[] res = BitConverter.GetBytes(v);
+            Byte[] nres = { res[1], res[0] };
+            return nres;
+        }
+
         //*****************************************************************************************************************************************************
         public static byte[] sToByte(int v) // short_to_bytes: return struct.pack("<H", l)  little-endian   	unsigned short=2
         {
@@ -73,7 +83,7 @@ namespace ohrwachs
 
 
     //*****************************************************************************************************************************************************
-    public class Header
+    internal class Header
     {
         public ushort length;
         public UInt64 img_number;
@@ -82,7 +92,7 @@ namespace ohrwachs
         public int packet_count;
         public int img_size;
         public int img_width;
-        public uint img_height;
+        public int img_height;
         public byte img_quality;
 
         public byte[] data;
@@ -105,7 +115,7 @@ namespace ohrwachs
     }
 
     //*****************************************************************************************************************************************************
-    public class Frame
+    internal class Frame
     {
         public Header header;
         public Dictionary<int, byte[]> chunks;
@@ -286,6 +296,7 @@ namespace ohrwachs
             udp.Send(initbytes, remoteEP2);
         }
 
+        Frame current_frame = null;
 
         //*****************************************************************************************************************************************************
         public void StartClient()
@@ -302,7 +313,6 @@ namespace ohrwachs
                 DateTime last_msg = DateTime.Now;
                 int last_full_image = 0;
                 int imgcounter = 0;  // globaler gesamtbildzähler
-                Frame current_frame = null;
                 try
                 {
                     udp.Send(nullbyte, remoteEP1);
@@ -401,10 +411,72 @@ namespace ohrwachs
         //*****************************************************************************************************************************************************
         public BitmapImage BuildJPeg()
         {
-            byte[] bytes = { 1, 2, 3, 4, 5 };
+            byte[] bytes = { 0xff, 0xd8 }; // # start of image
 
+            // Start des Header-Gedöns
+            // quantization tables (luminance + chrominance)
+            switch (current_frame.header.img_quality)
+            {
+                case 5:
+                    {
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004300a06e788c7864a08c828cb4aaa0bef0fffff0dcdcf0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004301aab4b4f0d2f0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+                        break;
+                    }
+                case 10:
+                    {
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb00430050373c463c32504641465a55505f78c882786e6e78f5afb991c8ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004301555a5a786978eb8282ebffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+                        break;
+                    }
+                case 25:
+                    {
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb0043002016181c1814201c1a1c24222026305034302c2c3062464a3a5074667a787266706e8090b89c8088ae8a6e70a0daa2aebec4ced0ce7c9ae2f2e0c8f0b8cacec6"));
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004301222424302a305e34345ec6847084c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6"));
+                        break;
+                    }
+                case 50:
+                    {
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004300100b0c0e0c0a100e0d0e1211101318281a181616183123251d283a333d3c3933383740485c4e404457453738506d51575f626768673e4d71797064785c656763"));
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb0043011112121815182f1a1a2f634238426363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363"));
+                        break;
+                    }
+                case 75:
+                    {
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb004300080606070605080707070909080a0c140d0c0b0b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c1c2837292c30313434341f27393d38323c2e333432"));
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb0043010909090c0b0c180d0d1832211c213232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232"));
+                        break;
+                    }
+                default:
+                    {
 
+                        bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb00430001010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"));
+                        break;
+                    }
+            }
+            // start of frame
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffc0001108"));
+            // out += struct.pack(">hh", h, w) big endian, short=uint16
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.sToByteBigEndian((short)current_frame.header.img_height));
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.sToByteBigEndian((short)current_frame.header.img_width));
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("03011100021101031101"));
+            // huffman tables
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffc4001f0000010501010101010100000000000000000102030405060708090a0b"));
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffc400b5100002010303020403050504040000017d01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9fa"));
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffc4001f0100030101010101010101010000000000000102030405060708090a0b"));
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffc400b51100020102040403040705040400010277000102031104052131061241510761711322328108144291a1b1c109233352f0156272d10a162434e125f11718191a262728292a35363738393a434445464748494a535455565758595a636465666768696a737475767778797a82838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae2e3e4e5e6e7e8e9eaf2f3f4f5f6f7f8f9fa"));
+            // start of scan
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffda000c03010002110311003f00"));
+            // Ende des Header-Gedöns
 
+            // Ditte! https://www.youtube.com/watch?v=JwlIAtjhD7E
+            for (int i = 0; i < current_frame.chunks.Count; i++)
+            {
+                bytes = Hlpr.Add2ByteArrays(bytes, current_frame.chunks[i]);
+            }
+
+            // end of image
+            bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffd9"));
 
             BitmapImage bitmapimage = new BitmapImage();
             using (MemoryStream memory = new MemoryStream(bytes))
@@ -413,61 +485,9 @@ namespace ohrwachs
                 bitmapimage.BeginInit();
                 bitmapimage.StreamSource = memory;
                 bitmapimage.EndInit();
+                bitmapimage.Freeze();
             }
             return bitmapimage;
-
-            /*
-            using (MemoryStream ms = new MemoryStream(bytes))
-            using (System.Drawing.Image image = Image.FromStream(ms, true, true))
-            {
-                return (Image)image.Clone();
-            }
-            */
-
-            /*
-                        def data(self):
-                    data = Frame.assemble_jpeg_header(self.header.img_quality, self.header.img_height, self.header.img_width)
-                    for i in range(self.header.packet_count):
-                        data += self.chunks[i]
-                    data += bytes.fromhex("ffd9") # end of image
-                    return data
-
-                @staticmethod
-                def assemble_jpeg_header(q, h, w):
-                    out = bytes()
-                    out += bytes.fromhex("ffd8") # start of image
-                    # quantization tables (luminance + chrominance)
-                    if q == 5:
-                        out += bytes.fromhex("ffdb004300a06e788c7864a08c828cb4aaa0bef0fffff0dcdcf0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-                        out += bytes.fromhex("ffdb004301aab4b4f0d2f0ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-                    elif q == 10:
-                        out += bytes.fromhex("ffdb00430050373c463c32504641465a55505f78c882786e6e78f5afb991c8ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-                        out += bytes.fromhex("ffdb004301555a5a786978eb8282ebffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
-                    elif q == 25:
-                        out += bytes.fromhex("ffdb0043002016181c1814201c1a1c24222026305034302c2c3062464a3a5074667a787266706e8090b89c8088ae8a6e70a0daa2aebec4ced0ce7c9ae2f2e0c8f0b8cacec6")
-                        out += bytes.fromhex("ffdb004301222424302a305e34345ec6847084c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6c6")
-                    elif q == 50:
-                        out += bytes.fromhex("ffdb004300100b0c0e0c0a100e0d0e1211101318281a181616183123251d283a333d3c3933383740485c4e404457453738506d51575f626768673e4d71797064785c656763")
-                        out += bytes.fromhex("ffdb0043011112121815182f1a1a2f634238426363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363")
-                    elif q == 75:
-                        out += bytes.fromhex("ffdb004300080606070605080707070909080a0c140d0c0b0b0c1912130f141d1a1f1e1d1a1c1c20242e2720222c231c1c2837292c30313434341f27393d38323c2e333432")
-                        out += bytes.fromhex("ffdb0043010909090c0b0c180d0d1832211c213232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232323232")
-                    else: # q: 100
-                        out += bytes.fromhex("ffdb00430001010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101")
-                        out += bytes.fromhex("ffdb00430101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101")
-                    # start of frame
-                    out += bytes.fromhex("ffc0001108")
-                    out += struct.pack(">hh", h, w)
-                    out += bytes.fromhex("03011100021101031101")
-                    # huffman tables
-                    out += bytes.fromhex("ffc4001f0000010501010101010100000000000000000102030405060708090a0b")
-                    out += bytes.fromhex("ffc400b5100002010303020403050504040000017d01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9fa")
-                    out += bytes.fromhex("ffc4001f0100030101010101010101010000000000000102030405060708090a0b")
-                    out += bytes.fromhex("ffc400b51100020102040403040705040400010277000102031104052131061241510761711322328108144291a1b1c109233352f0156272d10a162434e125f11718191a262728292a35363738393a434445464748494a535455565758595a636465666768696a737475767778797a82838485868788898a92939495969798999aa2a3a4a5a6a7a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae2e3e4e5e6e7e8e9eaf2f3f4f5f6f7f8f9fa")
-                    # start of scan
-                    out += bytes.fromhex("ffda000c03010002110311003f00")
-                    return out
-            */
         }
     }
 }
