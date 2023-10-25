@@ -7,6 +7,7 @@ using System.Windows;
 using System.IO;
 using System.Windows.Media.Imaging;
 using System.Windows.Markup;
+using System.Security.Cryptography;
 
 namespace ohrwachs
 {
@@ -48,6 +49,8 @@ namespace ohrwachs
                 res[i] = Convert.ToByte(hexString.Substring(i * 2, 2), 16);
             return res;
         }
+
+        // hauptsächlich wg. https://docs.python.org/3/library/struct.html
 
         //*****************************************************************************************************************************************************
         public static byte[] ullToByte(UInt64 v) // int_to_bytes: return struct.pack("<Q", i)  little-endian      unsigned long long=8
@@ -370,7 +373,7 @@ namespace ohrwachs
                                 {   // Wir sind ein Thread...
                                     Application.Current.Dispatcher.Invoke(() =>
                                     {
-                                        OnImgFertig(this, new OhrwachsEventArgs(imgcounter, BuildJPeg()));
+                                        OnImgFertig(this, new OhrwachsEventArgs(imgcounter, BuildJPeg(BuildJPegArray())));
                                     });
                                 }
 
@@ -390,7 +393,7 @@ namespace ohrwachs
                         {
                             Console.WriteLine("Request timed out; Reconnecting");
                             send_init(udp);
-                            //current_frame = None;
+                            current_frame = null;
                             last_full_image = 0;
                         }
                     }
@@ -409,7 +412,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public BitmapImage BuildJPeg()
+        public byte[] BuildJPegArray()
         {
             byte[] bytes = { 0xff, 0xd8 }; // # start of image
 
@@ -478,11 +481,18 @@ namespace ohrwachs
             // end of image
             bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffd9"));
 
+            return bytes;
+        }
+
+        //*****************************************************************************************************************************************************
+        public BitmapImage BuildJPeg(byte[] bytes)
+        {
             BitmapImage bitmapimage = new BitmapImage();
             using (MemoryStream memory = new MemoryStream(bytes))
             {
                 memory.Position = 0;
                 bitmapimage.BeginInit();
+                bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapimage.StreamSource = memory;
                 bitmapimage.EndInit();
                 bitmapimage.Freeze();

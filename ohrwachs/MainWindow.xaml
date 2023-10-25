@@ -22,9 +22,9 @@
          <Button Margin="3,0,3,0" Click="BtStart">Start</Button>
          <TextBlock Margin="0,0,3,0" VerticalAlignment="Center">Frame:</TextBlock>
          <TextBlock x:Name="tbframe" VerticalAlignment="Center"/>
+         <CheckBox x:Name="cbconsole" Click="cbclicked" VerticalAlignment="Center">Show Console with debug infos</CheckBox>
       </StackPanel>
       <Image x:Name="imohrwachs" Stretch="UniformToFill" Grid.Row="1" Grid.Column="0" />
-
    </Grid>
 </Window>
 

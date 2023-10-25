@@ -14,9 +14,13 @@ namespace ohrwachs
     public partial class MainWindow : Window
     {
         [DllImport("Kernel32")]
-        public static extern void AllocConsole();
+        private static extern bool FreeConsole();
+
+        [DllImport("Kernel32")]
+        private static extern void AllocConsole();
 
         OhrwachsEmpfaenger ow = null;
+
 
         //*****************************************************************************************************************************************************
         public MainWindow()
@@ -93,12 +97,22 @@ namespace ohrwachs
         {
             if (WiFiConnect())
             {
-                AllocConsole();
-                this.Activate();
-
                 ow = new();
                 ow.OnImgFertig += OhrwachsEventHandler;
                 Startthread();
+            }
+        }
+
+        //*****************************************************************************************************************************************************
+        private void cbclicked(object sender, RoutedEventArgs e)
+        {
+            if (cbconsole.IsChecked == true)
+            {
+                AllocConsole();
+                this.Activate();
+            } else
+            {
+                FreeConsole();
             }
         }
     }
