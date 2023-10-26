@@ -8,6 +8,7 @@ using System.IO;
 using System.Windows.Media.Imaging;
 using System.Windows.Markup;
 using System.Security.Cryptography;
+using System.Security.Policy;
 
 namespace ohrwachs
 {
@@ -84,7 +85,6 @@ namespace ohrwachs
         }
     }
 
-
     //*****************************************************************************************************************************************************
     internal class Header
     {
@@ -120,7 +120,7 @@ namespace ohrwachs
     //*****************************************************************************************************************************************************
     internal class Frame
     {
-        public Header header;
+        public Header header = null;
         public Dictionary<int, byte[]> chunks;
         public int angle;
 
@@ -138,24 +138,26 @@ namespace ohrwachs
             Header header = new Header(data);
 
             byte[] d = data[56..];
-            this.chunks[header.packet_number] = d[..^0];
+            this.chunks[header.packet_number] = d[..(d.Length < 1024 ? d.Length - 1 : 1024)];
 
-            if (header.packet_number == 0)
+            /* Wozu?
+        if (header.packet_number == 0)
+        {
+            byte[] a = d[1024..];
+            int x = int.Parse(System.Text.Encoding.Default.GetString(a, 0, 5));
+            int y = int.Parse(System.Text.Encoding.Default.GetString(a, 6, a.Length - 6));
+
+            if (x == 0 && y == 1024)
             {
-                byte[] a = d[1024..];
-                int x = int.Parse(System.Text.Encoding.Default.GetString(a, 0, 5));
-                int y = int.Parse(System.Text.Encoding.Default.GetString(a, 6, a.Length - 6));
-
-                if (x == 0 && y == 1024)
-                {
-                    this.angle = 90;
-                }
-                else
-                {
-                    double angle = Math.Atan2(x, y);
-                    this.angle = (int)Math.Round(angle * (180 / Math.PI));
-                }
+                this.angle = 90;
             }
+            else
+            {
+                double angle = Math.Atan2(x, y);
+                this.angle = (int)Math.Round(angle * (180 / Math.PI));
+            }
+        }
+            */
 
         }
 
@@ -168,19 +170,49 @@ namespace ohrwachs
             }
         }
 
-    }
+        public int ImageSize
+        {
+            get
+            {
+                if (header != null)
+                {
+                    return header.img_size;
+                }
+                else
+                {
+                    return -1;
+                }
+            }
+        }
+        public int ImageSizeComputed
+        {
+            get
+            {
+                int ret = 0;
+                for (int i = 0; i < chunks.Count; i++)
+                {
+                    ret += chunks[i].Length;
+                }
+                return ret;
+            }
+        }
 
+    }
 
     //*****************************************************************************************************************************************************
     public class OhrwachsEventArgs : EventArgs
     {
+        public bool Dead { get; set; }
         public int ImgNr { get; set; }
         public BitmapImage? Image { get; set; }
+        public List<String> Protocol { get; set; }
 
-        public OhrwachsEventArgs(int ImgNr, BitmapImage? Image)
+        public OhrwachsEventArgs(bool Dead, int ImgNr, BitmapImage? Image, List<String> Protocol)
         {
+            this.Dead = Dead;
             this.ImgNr = ImgNr;
             this.Image = Image;
+            this.Protocol = Protocol;
         }
     }
 
@@ -203,10 +235,12 @@ namespace ohrwachs
         byte[] msgbytes = { 0xef, 0x02 };
         public bool die = false;
 
+        List<String> protocol = new() { };
+
         public event OhrwachsEventHandler OnImgFertig = null;
 
         //*****************************************************************************************************************************************************
-        byte[]? EmpfangeUDPpacket(UdpClient udpReceiver)
+        private byte[]? EmpfangeUDPpacket(UdpClient udpReceiver)
         {
             IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
             byte[] packet;
@@ -225,7 +259,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        byte[] msgAckImg(UInt64 imgnumber)
+        private byte[] msgAckImg(UInt64 imgnumber)
         {
             byte[] res = Hlpr.ullToByte(Convert.ToUInt64(imgnumber));
             res = Hlpr.Add2ByteArrays(res, Hlpr.HexStringToByte("0100000014000000ffffffff"));
@@ -234,34 +268,16 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        byte[] reqImg(UInt64 imgnumber)
+        private byte[] reqImg(UInt64 imgnumber)
         {
             byte[] res = Hlpr.ullToByte(Convert.ToUInt64(imgnumber));
             res = Hlpr.Add2ByteArrays(res, Hlpr.HexStringToByte("0300000010000000"));
             return res;
         }
 
-
         //*****************************************************************************************************************************************************
-        void sendmessage(UdpClient udp, byte[]? d1, byte[]? d2)
+        private void sendmessage(UdpClient udp, byte[]? d1, byte[]? d2)
         {
-            /*
-            def send_msgs(socket, msgs):
-        to_send = bytes.fromhex("02020001")
-        to_send += int_to_bytes(len(msgs))
-        to_send += bytes.fromhex("0000000000000000")
-        to_send += bytes.fromhex("0a4b142d00000000")
-        for msg in msgs:
-            to_send += msg
-        to_send += bytes.fromhex("0000000000000000")
-        to_send = bytes([0xef, 0x02]) + short_to_bytes(len(to_send) + 4) + to_send
-        try:
-            socket.sendto(to_send, (ip, port))
-        except:
-            pass
-            */
-
-
             byte[] msg = Hlpr.HexStringToByte("02020001");
 
             int len = 0; // number of messages?
@@ -294,127 +310,193 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        void send_init(UdpClient udp)
+        private void send_init(UdpClient udp)
         {
             udp.Send(initbytes, remoteEP2);
         }
 
-        Frame current_frame = null;
+        //*****************************************************************************************************************************************************
+        private void send_empty(UdpClient udp)
+        {
+            udp.Send(nullbyte, remoteEP1);
+        }
+
+        private Frame current_frame = null;
+        private enum EngineState { none, init, receive, timeout }
 
         //*****************************************************************************************************************************************************
         public void StartClient()
         {
-            try // outer
+            try // Outer
             {
                 ipAddress = IPAddress.Parse(hostname);
                 remoteEP1 = new IPEndPoint(ipAddress, hostport1);
                 remoteEP2 = new IPEndPoint(ipAddress, hostport2);
 
                 UdpClient udp = new UdpClient(localport);
-                udp.Client.ReceiveTimeout = 125;
+                udp.Client.ReceiveTimeout = 5000; // 5 Sekunden.
 
-                DateTime last_msg = DateTime.Now;
-                int last_full_image = 0;
+                UInt64 last_full_image = 0;
                 int imgcounter = 0;  // globaler gesamtbildzähler
-                try
-                {
-                    udp.Send(nullbyte, remoteEP1);
-                    send_init(udp);
+                EngineState state = EngineState.init;
+                EngineState timeout = EngineState.none;
+                DateTime retrytimer;
 
+                try // Inner
+                {
                     while (!die)
                     {
-                        byte[]? packet = EmpfangeUDPpacket(udp);
-                        if (packet != null) // https://www.youtube.com/watch?v=0kadkQDc1Ts
+                        switch (state) // Behandlung von Verbindungen
                         {
-                            last_msg = DateTime.Now;
-                            // Console.WriteLine("Packet!");
-
-                            if (packet[0] != 0x93)
-                            {
-                                Console.WriteLine($"Nonono1. {packet[0]}");
-                                continue;
-                            }
-                            if (packet[1] == 0x04)
-                            {
-                                // TODO ctlmsg
-                                continue;
-                            }
-                            if (packet[1] != 0x01)
-                            {
-                                Console.WriteLine($"Nonono2. {packet[1]}");
-                                continue;
-                            }
-                            Header header = new Header(packet);
-                            if (current_frame == null)
-                            {
-                                current_frame = new Frame(header);
-                            }
-                            if (header.img_number > current_frame.header.img_number)
-                            {
-                                current_frame = new Frame(header);
-                            }
-                            if (header.img_number < current_frame.header.img_number)
-                            {
-                                continue;
-                            }
-                            current_frame.Add(packet);
-
-                            if (current_frame.Complete)
-                            {
-                                Console.WriteLine($"Img {header.img_number} complete.");
-
-                                sendmessage(udp,
-                                    msgAckImg(current_frame.header.img_number),
-                                    reqImg(current_frame.header.img_number + 1));
-
-                                imgcounter++;
-
-                                if (OnImgFertig != null)
-                                {   // Wir sind ein Thread...
-                                    Application.Current.Dispatcher.Invoke(() =>
+                            case EngineState.init:
+                                {
+                                    send_empty(udp);
+                                    send_init(udp);
+                                    state = EngineState.receive;
+                                    break;
+                                }
+                            case EngineState.receive:
+                                {
+                                    byte[]? packet = EmpfangeUDPpacket(udp);
+                                    if (packet != null) // https://www.youtube.com/watch?v=0kadkQDc1Ts
                                     {
-                                        OnImgFertig(this, new OhrwachsEventArgs(imgcounter, BuildJPeg(BuildJPegArray())));
-                                    });
+                                        // Console.WriteLine("Packet!");
+                                        timeout = EngineState.none;
+
+                                        if (packet[0] != 0x93)
+                                        {
+                                            protocol.Add($"Nonono1. {packet[0]}");
+                                            continue;
+                                        }
+                                        if (packet[1] == 0x04)
+                                        {
+                                            // TODO ctlmsg
+                                            continue;
+                                        }
+                                        if (packet[1] != 0x01)
+                                        {
+                                            protocol.Add($"Nonono2. {packet[1]}");
+                                            continue;
+                                        }
+                                        Header header = new Header(packet);
+                                        if (current_frame == null)
+                                        {
+                                            current_frame = new Frame(header);
+                                        }
+                                        if (header.img_number > current_frame.header.img_number)
+                                        {
+                                            current_frame = new Frame(header);
+                                        }
+                                        if (header.img_number < current_frame.header.img_number)
+                                        {
+                                            continue;
+                                        }
+                                        current_frame.Add(packet);
+
+                                        if (current_frame.Complete)
+                                        {
+                                            /* Wir haben 1 Byte Differenz. Warum?
+                                            protocol.Add($"ImageSize: {current_frame.ImageSize} Computed: {current_frame.ImageSizeComputed}");
+                                            protocol.Add($"Diff: {current_frame.ImageSize - current_frame.ImageSizeComputed}");
+                                            */
+                                            protocol.Add($"Img {header.img_number} complete.");
+
+                                            sendmessage(udp,
+                                                msgAckImg(current_frame.header.img_number),
+                                                reqImg(current_frame.header.img_number + 1));
+
+                                            imgcounter++;
+
+                                            if (OnImgFertig != null)
+                                            {   // Wir sind ein Thread...
+                                                Application.Current.Dispatcher.Invoke(() =>
+                                                {
+                                                    if (OnImgFertig != null)
+                                                    {
+                                                        OnImgFertig(this, new OhrwachsEventArgs(false, imgcounter, BuildBitmapImage(), protocol));
+                                                    }
+                                                });
+                                            }
+
+                                            last_full_image = current_frame.header.img_number;
+                                            current_frame = null;
+                                        }
+
+                                    }
+                                    else // kein Packet
+                                    {   // nur in den Timeout wechseln, wenn wir nicht drinne sind...
+                                        if (timeout == EngineState.none)
+                                        {
+                                            timeout = EngineState.timeout;
+                                        }
+                                    }
+                                    break;
                                 }
 
-                                last_full_image = (int)current_frame.header.img_number;
-                                current_frame = null;
+                        }
+                        if (!die)
+                        {
+                            switch (timeout) // Behandlung von Timeouts
+                            {
+                                case EngineState.timeout:
+                                    {
+                                        protocol.Add("Request timed out; Reconnecting");
+                                        Imdead(false);
+                                        send_init(udp);
+                                        current_frame = null;
+                                        last_full_image = 0;
+                                        break;
+                                    }
                             }
-                        }
-
-                        int vergangen10tel = (int)((DateTime.Now - last_msg).TotalSeconds * 10.0);
-                        if (vergangen10tel > 1200)
-                        {
-                            Console.WriteLine("Connection lost");
-                            return;
-                        }
-
-                        if (vergangen10tel > 15)
-                        {
-                            Console.WriteLine("Request timed out; Reconnecting");
-                            send_init(udp);
-                            current_frame = null;
-                            last_full_image = 0;
                         }
                     }
                 }
-                catch (Exception e)
+                catch (Exception e) // Inner
                 {
-                    Console.WriteLine(e.ToString());
-                    return; // ich mein, was sonst kann man tun?
+                    protocol.Add(e.ToString());
+                    Imdead(true);
+                    return;
                 }
             }
-            catch (Exception e)
+            catch (Exception e) // Outer
             {
-                Console.WriteLine(e.ToString());
+                protocol.Add(e.ToString());
+                Imdead(true);
                 return;
             }
+            Imdead(true);
+        }
+
+        //*****************************************************************************************************************************************************
+        private void Imdead(bool amI) // wenn wir melden wollen, dass wir tot sind
+        {
+            die = amI;
+            if (OnImgFertig != null)
+            {   // Wir sind ein Thread...
+                Application.Current.Dispatcher.Invoke(() =>
+                {
+                    if (amI)
+                    {
+                        protocol.Add("Thread died.");
+                    }
+                    OnImgFertig(this, new OhrwachsEventArgs(amI, 0, null, protocol));
+                });
+            }
+        }
+
+        //*****************************************************************************************************************************************************
+        public void kill() // wenn andere uns töten wollen
+        {
+            die = true;
+            OnImgFertig = null;
         }
 
         //*****************************************************************************************************************************************************
         public byte[] BuildJPegArray()
         {
             byte[] bytes = { 0xff, 0xd8 }; // # start of image
+
+            // Console.WriteLine(current_frame.header.img_quality);
 
             // Start des Header-Gedöns
             // quantization tables (luminance + chrominance)
@@ -452,7 +534,6 @@ namespace ohrwachs
                     }
                 default:
                     {
-
                         bytes = Hlpr.Add2ByteArrays(bytes, Hlpr.HexStringToByte("ffdb00430001010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"));
                         break;
                     }
@@ -485,13 +566,16 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public BitmapImage BuildJPeg(byte[] bytes)
+        public BitmapImage BuildBitmapImage()
         {
+            byte[] bytes = BuildJPegArray();
+
             BitmapImage bitmapimage = new BitmapImage();
             using (MemoryStream memory = new MemoryStream(bytes))
             {
                 memory.Position = 0;
                 bitmapimage.BeginInit();
+                // https://www.youtube.com/watch?v=6c-RbGZBnBI
                 bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapimage.StreamSource = memory;
                 bitmapimage.EndInit();
@@ -501,14 +585,5 @@ namespace ohrwachs
         }
     }
 }
-
-
-
-
-
-
-
-
-
 
 
