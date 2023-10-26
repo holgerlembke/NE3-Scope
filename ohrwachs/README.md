@@ -6,4 +6,4 @@ Haxko did all the heavy lifting: protocol analysis. I only made a simple C# WPF 
 
 Work in Progress.
 
-![this is it](https://raw.githubusercontent.com/holgerlembke/ESPFMfGK/main/img/bild1.jpg)
+![this is it](https://github.com/holgerlembke/NE3-Scope/blob/main/ohrwachs/images/ohrwachs.jpg?raw=true)
