@@ -44,6 +44,7 @@ namespace ohrwachs
                 if (e.Image != null)
                 {
                     tbframe.Text = e.ImgNr.ToString();
+                    tbretry.Text = (e.Retry+1).ToString();
                     imohrwachs.Source = e.Image;
                 }
             }

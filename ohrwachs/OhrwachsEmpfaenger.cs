@@ -22,14 +22,14 @@ namespace ohrwachs
        - it then came to:   Class cl = new ();
 
        Range
-       - Range r1 = 9..12;     gives a Range from the 9th to 12th item in an array. Zero based, of course.
+       - Range r1 = 9..12;     gives a Range from the 9th to 12th item in an array. Zero based, of course, total
+                               4 elements
        - Range r2 = 1..;       gives all elements but not the first
-       - Range r3 = ..^1;      gives all but the last
+       - Range r3 = ..12;      gives from first to 12th element, total: 13 elements
+       - Range r4 = ..^1;      gives all but the last
 
        ^ (hat) is index relative to end.
     */
-
-
 
     internal static class Hlpr // TODO braucht eine Überarbeiitung der Datentypen!
     {
@@ -133,12 +133,13 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public void Add(byte[] data)
+        public void Add(byte[] data, Header header)
         {
-            Header header = new Header(data);
-
-            byte[] d = data[56..];
-            this.chunks[header.packet_number] = d[..(d.Length < 1024 ? d.Length - 1 : 1024)];
+            //byte[] d = data[56..];
+            // byte[] d = data;
+            // Kopiert 1024 Bytes bzw. soviel wie da ist ab Position 56
+            const int tvzwg = 1024+56;
+            this.chunks[header.packet_number] = data[56..((data.Length < tvzwg ? data.Length : tvzwg))];
 
             /* Wozu?
         if (header.packet_number == 0)
@@ -158,7 +159,6 @@ namespace ohrwachs
             }
         }
             */
-
         }
 
         //*****************************************************************************************************************************************************
@@ -204,13 +204,15 @@ namespace ohrwachs
     {
         public bool Dead { get; set; }
         public int ImgNr { get; set; }
+        public int Retry { get; set; }
         public BitmapImage? Image { get; set; }
         public List<String> Protocol { get; set; }
 
-        public OhrwachsEventArgs(bool Dead, int ImgNr, BitmapImage? Image, List<String> Protocol)
+        public OhrwachsEventArgs(bool Dead, int ImgNr, int Retry, BitmapImage? Image, List<String> Protocol)
         {
             this.Dead = Dead;
             this.ImgNr = ImgNr;
+            this.Retry = Retry; 
             this.Image = Image;
             this.Protocol = Protocol;
         }
@@ -334,10 +336,11 @@ namespace ohrwachs
                 remoteEP2 = new IPEndPoint(ipAddress, hostport2);
 
                 UdpClient udp = new UdpClient(localport);
-                udp.Client.ReceiveTimeout = 5000; // 5 Sekunden.
+                udp.Client.ReceiveTimeout = 1000; // in 1000/tel Sekunden.
 
                 UInt64 last_full_image = 0;
-                int imgcounter = 0;  // globaler gesamtbildzähler
+                int imgcounter = 0;   // globaler gesamtbildzähler
+                int retrycounter = 0;   
                 EngineState state = EngineState.init;
                 EngineState timeout = EngineState.none;
                 DateTime retrytimer;
@@ -391,14 +394,14 @@ namespace ohrwachs
                                         {
                                             continue;
                                         }
-                                        current_frame.Add(packet);
+                                        current_frame.Add(packet,header);
 
                                         if (current_frame.Complete)
                                         {
-                                            /* Wir haben 1 Byte Differenz. Warum?
+                                            /** /
                                             protocol.Add($"ImageSize: {current_frame.ImageSize} Computed: {current_frame.ImageSizeComputed}");
                                             protocol.Add($"Diff: {current_frame.ImageSize - current_frame.ImageSizeComputed}");
-                                            */
+                                            /**/
                                             protocol.Add($"Img {header.img_number} complete.");
 
                                             sendmessage(udp,
@@ -413,7 +416,7 @@ namespace ohrwachs
                                                 {
                                                     if (OnImgFertig != null)
                                                     {
-                                                        OnImgFertig(this, new OhrwachsEventArgs(false, imgcounter, BuildBitmapImage(), protocol));
+                                                        OnImgFertig(this, new OhrwachsEventArgs(false, imgcounter, retrycounter, BuildBitmapImage(), protocol));
                                                     }
                                                 });
                                             }
@@ -421,7 +424,6 @@ namespace ohrwachs
                                             last_full_image = current_frame.header.img_number;
                                             current_frame = null;
                                         }
-
                                     }
                                     else // kein Packet
                                     {   // nur in den Timeout wechseln, wenn wir nicht drinne sind...
@@ -438,8 +440,16 @@ namespace ohrwachs
                         {
                             switch (timeout) // Behandlung von Timeouts
                             {
+                                /*
+                                Im Python-Code ist ein Riesenaufwand mit drei verschachtelteten
+                                Timern für das Timeoutmanagement. Alles ziemlich komplex.
+
+                                Scheinbar geht es auch einfacher: neu starten. Drum hier nur noch
+                                das Restfragment dafür.
+                                */
                                 case EngineState.timeout:
                                     {
+                                        retrycounter++;
                                         protocol.Add("Request timed out; Reconnecting");
                                         Imdead(false);
                                         send_init(udp);
@@ -479,7 +489,10 @@ namespace ohrwachs
                     {
                         protocol.Add("Thread died.");
                     }
-                    OnImgFertig(this, new OhrwachsEventArgs(amI, 0, null, protocol));
+                    if (OnImgFertig != null)
+                    {
+                        OnImgFertig(this, new OhrwachsEventArgs(amI, 0, 0, null, protocol));
+                    }
                 });
             }
         }
