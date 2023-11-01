@@ -45,7 +45,7 @@ Discarded? What does the OS do? I found no trustable answers, only random snipet
 about Windows Server Solutions.
 
 So to tackle both potential timeout reasons I decided to add a second thread. OhrwachsEmpfaenger focuses on
-receiving and timeout handling. Pakets are passed as they are to OhrWachs2GuiPumpe which does all the byte 
+receiving and timeout handling. Pakets are passed as they are to Ohrwachs2GuiPumpe which does all the byte 
 copying, jpeg building and dispatch to the GUI stuff.
 
 Does it help? Yes and no. There are still timeouts every 100 to 200 images. 

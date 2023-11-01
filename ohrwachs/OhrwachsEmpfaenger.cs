@@ -265,7 +265,7 @@ namespace ohrwachs
              Ich habe nichts für Windows 10/11 gefunden, wie UDP-Pakete vom OS gepuffert werden.
              Irgendwo stand was von 10k pro Port, aber alles unklar.
     */
-    internal class OhrWachs2GuiPumpe // https://www.youtube.com/watch?v=JcBiORcc1YI
+    internal class Ohrwachs2GuiPumpe // https://www.youtube.com/watch?v=JcBiORcc1YI
     {
         public event OhrwachsEventHandler OnImgFertig = null;
 
@@ -277,7 +277,7 @@ namespace ohrwachs
         public bool dead = false;
 
         //*****************************************************************************************************************************************************
-        internal OhrWachs2GuiPumpe()
+        internal Ohrwachs2GuiPumpe()
         {
             // garantiert eine Fifo-Listenstruktur als Listenobjekt
             list = new(new ConcurrentQueue<Frame>());
@@ -492,7 +492,7 @@ namespace ohrwachs
         readonly byte[] msgbytes = { 0xef, 0x02 };
         public bool die = false;
 
-        private OhrWachs2GuiPumpe pumpe = null;
+        private Ohrwachs2GuiPumpe pumpe = null;
 
         //*****************************************************************************************************************************************************
         public OhrwachsEmpfaenger()
