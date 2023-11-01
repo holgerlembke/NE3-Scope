@@ -103,7 +103,7 @@ namespace ohrwachs
 
         public byte[] data;
 
-        public Header(byte[] data)
+        public Header(ref byte[] data)
         {
             // BitConverter.IsLittleEndian=false
             length = BitConverter.ToUInt16(data, 2);
@@ -136,7 +136,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public void Add(byte[] data, Header header)
+        public void Add(ref byte[] data, ref Header header)
         {
             //byte[] d = data[56..];
             // byte[] d = data;
@@ -414,7 +414,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public void Add(Frame frame)
+        public void Add(ref Frame frame)
         {
             list.Add(frame);
         }
@@ -514,7 +514,7 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        private byte[]? EmpfangeUDPpacket(UdpClient udpReceiver)
+        private byte[]? EmpfangeUDPpacket(ref UdpClient udpReceiver)
         {
             IPEndPoint sender = new IPEndPoint(IPAddress.Any, 0);
             byte[] packet;
@@ -655,7 +655,7 @@ namespace ohrwachs
                                 }
                             case EngineState.receive:
                                 {
-                                    byte[]? packet = EmpfangeUDPpacket(udp);
+                                    byte[]? packet = EmpfangeUDPpacket(ref udp);
                                     if (packet != null) // https://www.youtube.com/watch?v=0kadkQDc1Ts
                                     {
                                         // Console.WriteLine("Packet!");
@@ -676,7 +676,7 @@ namespace ohrwachs
                                             pumpe.Add($"Nonono2. {packet[1]}");
                                             continue;
                                         }
-                                        Header header = new Header(packet);
+                                        Header header = new Header(ref packet);
                                         if (current_frame == null)
                                         {
                                             current_frame = new Frame(header);
@@ -684,12 +684,12 @@ namespace ohrwachs
                                         if (header.img_number > current_frame.header.img_number)
                                         {
                                             current_frame = new Frame(header);
-                                        }
+                                        } else
                                         if (header.img_number < current_frame.header.img_number)
                                         {
                                             continue;
                                         }
-                                        current_frame.Add(packet, header);
+                                        current_frame.Add(ref packet, ref header);
 
                                         if (current_frame.Komplett)
                                         {
@@ -707,9 +707,9 @@ namespace ohrwachs
 
                                             current_frame.imgcounter = imgcounter;
                                             current_frame.retrycounter = retrycounter;
-                                            pumpe.Add(current_frame);
-
                                             last_full_image = current_frame.header.img_number;
+                                            pumpe.Add(ref current_frame);
+
                                             current_frame = null;
                                         }
                                     }

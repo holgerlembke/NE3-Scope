@@ -10,6 +10,7 @@ Haxko did all the heavy lifting: protocol analysis. I only made a simple C# WPF 
 
 ![this is it](https://github.com/holgerlembke/NE3-Scope/blob/main/ohrwachs/images/ohrwachs3.jpg?raw=true)
 
+https://github.com/holgerlembke/NE3-Scope/tree/main/ohrwachs/release has a executable.
 
 ## Remarks
 
