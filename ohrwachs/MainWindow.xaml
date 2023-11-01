@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ohrwachs"
         mc:Ignorable="d"
-        Title="Ohrwachs - ein Port von NE3-Scope" Height="450" Width="800">
+        Title="👂🕯 Ohrwachs - ein Port von NE3-Scope" Height="450" Width="800">
    <Grid>
       <Grid.LayoutTransform>
          <ScaleTransform x:Name="uiScaler" CenterX="0" CenterY="0" ScaleX="1" ScaleY="1" />
@@ -21,11 +21,17 @@
                   <RowDefinition Height="*" />
                </Grid.RowDefinitions>
                <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-                  <Button x:Name="btStart" Margin="3,0,3,0" Click="BtStart">Start</Button>
-                  <TextBlock Margin="0,0,3,0" VerticalAlignment="Center">Frame:</TextBlock>
-                  <TextBlock x:Name="tbframe" VerticalAlignment="Center"/>
-                  <TextBlock Margin="3,0,3,0" VerticalAlignment="Center">Verbindung:</TextBlock>
-                  <TextBlock x:Name="tbretry" VerticalAlignment="Center"/>
+                  <StackPanel x:Name="spOnline"  Orientation="Horizontal" Visibility="Collapsed">
+                     <Button x:Name="btStart" Margin="3,0,3,0" Click="BtStart">Start</Button>
+                     <TextBlock Margin="0,0,3,0" VerticalAlignment="Center">Frame:</TextBlock>
+                     <TextBlock x:Name="tbframe" VerticalAlignment="Center"/>
+                     <TextBlock Margin="3,0,3,0" VerticalAlignment="Center">Verbindung:</TextBlock>
+                     <TextBlock x:Name="tbretry" VerticalAlignment="Center"/>
+                  </StackPanel>
+                  <StackPanel x:Name="spOffline"  Orientation="Horizontal">
+                     <TextBlock Margin="3,0,3,0" VerticalAlignment="Center">WiFi:</TextBlock>
+                     <TextBlock x:Name="tbwifi" VerticalAlignment="Center"/>
+                  </StackPanel>
                </StackPanel>
                <Image x:Name="imohrwachs" Stretch="UniformToFill" Grid.Row="1" Grid.Column="0" />
             </Grid>
