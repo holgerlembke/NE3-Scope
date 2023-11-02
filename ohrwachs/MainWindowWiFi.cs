@@ -3,8 +3,6 @@ using System.Text;
 using System;
 using System.Windows;
 using System.Windows.Threading;
-using System.Net.NetworkInformation;
-using System.Windows.Interop;
 using static NativeWifi.Wlan;
 
 namespace ohrwachs

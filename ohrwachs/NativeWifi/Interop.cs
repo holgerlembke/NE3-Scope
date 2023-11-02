@@ -1,3 +1,4 @@
+#pragma warning(push)
 #pragma warning disable 1573
 #pragma warning disable 1574
 using System;
@@ -1668,3 +1669,4 @@ namespace NativeWifi
 		}
 	}
 }
+#pragma warning(pop)

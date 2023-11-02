@@ -10,6 +10,7 @@ using System.Threading;
 using System.Reflection.PortableExecutable;
 using System.Security.Cryptography.Pkcs;
 using System.Windows.Controls;
+using System.Windows.Markup;
 
 namespace ohrwachs
 {
@@ -30,6 +31,28 @@ namespace ohrwachs
        - Range r4 = ..^1;      gives all but the last
 
        ^ (hat) is index relative to end.
+
+       $ is "String interpolation" instead of format... C#6.0
+
+
+    ok, wenn mir denn mal langweilig ist.... die frage ist, glaube ich eher, was ist die ursache für die timeouts?
+
+    https://enclave.io/high-performance-udp-sockets-net6/
+
+            Old unpleasantness with a new byte[] allocation:
+
+            var recvBuffer = new byte[1024];
+            int bytesRead = ReceiveSomeData(recvBuffer);
+            var actualReceived = new byte[bytesRead];
+
+            Array.Copy(recvBuffer, actualRecvd, bytesRead);
+            New goodness:
+
+            Memory<byte> recvBuffer = new byte[1024];
+            int bytesRead = ReceiveSomeData(recvBuffer);
+
+            // No allocations to get a subsection of the buffer.
+            var actualReceived = recvBuffer.Slice(0, bytesRead);
     */
 
     // https://github.com/haxko/NE3-Scope --> https://github.com/holgerlembke/NE3-Scope
@@ -101,9 +124,9 @@ namespace ohrwachs
         public int img_height;
         public byte img_quality;
 
-        public byte[] data;
+        //public byte[] data;
 
-        public Header(ref byte[] data)
+        internal Header(ref byte[] data)
         {
             // BitConverter.IsLittleEndian=false
             length = BitConverter.ToUInt16(data, 2);
@@ -116,7 +139,7 @@ namespace ohrwachs
             img_height = BitConverter.ToUInt16(data, 46);
             img_quality = (byte)BitConverter.ToChar(data, 48); // yeah.
 
-            this.data = data;
+            //this.data = data;
         }
     }
 
@@ -136,13 +159,13 @@ namespace ohrwachs
         }
 
         //*****************************************************************************************************************************************************
-        public void Add(ref byte[] data, ref Header header)
+        public void Add(ref byte[] data, int packetnumber)
         {
             //byte[] d = data[56..];
             // byte[] d = data;
             // Kopiert 1024 Bytes bzw. soviel wie da ist ab Position 56
             const int tvzwg = 1024 + 56;
-            this.chunks[header.packet_number] = data[56..((data.Length < tvzwg ? data.Length : tvzwg))];
+            this.chunks[packetnumber] = data[56..((data.Length < tvzwg ? data.Length : tvzwg))];
 
             /* Wozu?
         if (header.packet_number == 0)
@@ -526,9 +549,6 @@ namespace ohrwachs
             {
                 return null;
             }
-            // $ is "String interpolation" instead of format... C#6.0
-            // Console.WriteLine($"Received {packet.Length} bytes from {sender}");
-
             return packet;
         }
 
@@ -605,6 +625,18 @@ namespace ohrwachs
             udp.Send(nullbyte, remoteEP1);
         }
 
+        //*****************************************************************************************************************************************************
+        private ulong peekimgnr(ref byte[] packet)
+        {
+            return BitConverter.ToUInt64(packet, 8);
+        }
+
+        //*****************************************************************************************************************************************************
+        private int peekpacketnr(ref byte[] packet)
+        {
+            return BitConverter.ToInt32(packet, 32);
+        }
+
         private Frame current_frame = null;
         private enum EngineState { none, init, receive, timeout }
 
@@ -676,20 +708,22 @@ namespace ohrwachs
                                             pumpe.Add($"Nonono2. {packet[1]}");
                                             continue;
                                         }
-                                        Header header = new Header(ref packet);
+                                        ulong imgnumberbyheader = peekimgnr(ref packet);
+                                        // Header header = new (ref packet);
                                         if (current_frame == null)
                                         {
-                                            current_frame = new Frame(header);
+                                            current_frame = new Frame(new Header(ref packet));
                                         }
-                                        if (header.img_number > current_frame.header.img_number)
+                                        if (imgnumberbyheader > current_frame.header.img_number)
                                         {
-                                            current_frame = new Frame(header);
-                                        } else
-                                        if (header.img_number < current_frame.header.img_number)
+                                            current_frame = new Frame(new Header(ref packet));
+                                        }
+                                        else
+                                        if (imgnumberbyheader < current_frame.header.img_number)
                                         {
                                             continue;
                                         }
-                                        current_frame.Add(ref packet, ref header);
+                                        current_frame.Add(ref packet, peekpacketnr(ref packet));
 
                                         if (current_frame.Komplett)
                                         {
@@ -699,6 +733,11 @@ namespace ohrwachs
                                             /**/
                                             // pumpe.Add($"Img {header.img_number} complete.");
 
+                                            /* kann es sein, dass wir zu schnell sind?
+                                            Thread.Sleep(100); 
+                                            dann müsste eigentlich, wenn wir gaaaaanz lange warten,
+                                            kein fehler auftreten. tut es aber.
+                                            */
                                             sendmessage(udp,
                                                 msgAckImg(current_frame.header.img_number),
                                                 reqImg(current_frame.header.img_number + 1));
@@ -726,6 +765,7 @@ namespace ohrwachs
                                                 pumpe.Add($"Timeout at {current_frame.header.img_number} with {current_frame.chunks.Count} frames.");
                                             }
                                             timeout = EngineState.timeout;
+                                            /*cp*/
                                         }
                                     }
                                     break;
@@ -742,9 +782,15 @@ namespace ohrwachs
 
                                 Scheinbar geht es auch einfacher: neu starten. Drum hier nur noch
                                 das Restfragment dafür.
+
+                                Dieser switch-krams 
                                 */
                                 case EngineState.timeout:
                                     {
+                                        // dieser codeblock könnte eigentlich nach oben verschoben werden.
+                                        // er ist es reststück, weil ich mal dachte, dass es auch für
+                                        // timeouts eine state-engine braucht.
+                                        /*cp*/
                                         retrycounter++;
                                         pumpe.Add("Request timed out; Reconnecting");
                                         send_init(udp);
