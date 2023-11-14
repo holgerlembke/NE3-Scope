@@ -532,7 +532,7 @@ namespace ohrwachs
             }
             remove
             {
-                pumpe.OnImgFertig += value;
+                pumpe.OnImgFertig -= value;
             }
         }
 
